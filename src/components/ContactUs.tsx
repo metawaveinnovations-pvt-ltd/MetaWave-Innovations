@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Phone, Clock, MapPin, CheckCircle, Sparkles, Send, Globe, AlertTriangle, ShieldCheck, HelpCircle, ChevronDown } from 'lucide-react';
+import { Mail, Phone, Clock, MapPin, CheckCircle, Sparkles, Send, Globe, AlertTriangle, ShieldCheck, HelpCircle, ChevronDown, Loader2 } from 'lucide-react';
 import { playSound } from '../utils/audio';
+import { createClient } from '../../lib/supabase/client';
+
+const supabase = createClient();
 
 interface FaqItem {
   q: string;
@@ -11,6 +14,7 @@ interface FaqItem {
 export function ContactUs() {
   const [activeOffice, setActiveOffice] = useState<'london' | 'dubai' | 'ny' | 'islamabad'>('london');
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   
@@ -84,15 +88,46 @@ export function ContactUs() {
     if (validationError) setValidationError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) {
       setValidationError('Please fill out the required Name and Corporate Email fields.');
       return;
     }
-    setFormSubmitted(true);
+    
+    setIsSubmitting(true);
     setValidationError(null);
-    playSound('success');
+
+    try {
+      const { error } = await supabase
+        .from('contact_submissions')
+        .insert([
+          {
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            company: formData.company.trim() || null,
+            phone: formData.phone.trim() || null,
+            service_needed: formData.serviceNeeded,
+            budget_range: formData.budgetRange,
+            project_details: formData.projectDetails.trim() || null,
+          }
+        ]);
+
+      if (error) {
+        throw error;
+      }
+
+      setFormSubmitted(true);
+      playSound('success');
+    } catch (err: any) {
+      console.error('Supabase contact submission failed:', err);
+      setValidationError(
+        err.message || 
+        'Unable to connect to the database or save inquiry. Please check your Supabase connection.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -154,10 +189,11 @@ export function ContactUs() {
                         name="name"
                         id="name"
                         required
+                        disabled={isSubmitting}
                         value={formData.name}
                         onChange={handleInputChange}
                         placeholder="Elizabeth Thorne"
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -166,14 +202,15 @@ export function ContactUs() {
                         CORPORATE EMAIL *
                       </label>
                       <input
-                        type="type"
+                        type="email"
                         name="email"
                         id="email"
                         required
+                        disabled={isSubmitting}
                         value={formData.email}
                         onChange={handleInputChange}
                         placeholder="ethorne@vanguard-cloud.co.uk"
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -187,10 +224,11 @@ export function ContactUs() {
                         type="text"
                         name="company"
                         id="company"
+                        disabled={isSubmitting}
                         value={formData.company}
                         onChange={handleInputChange}
                         placeholder="Vanguard Cloud Systems"
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
 
@@ -202,10 +240,11 @@ export function ContactUs() {
                         type="text"
                         name="phone"
                         id="phone"
+                        disabled={isSubmitting}
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="+44 20 7496 0192"
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -218,9 +257,10 @@ export function ContactUs() {
                       <select
                         name="serviceNeeded"
                         id="serviceNeeded"
+                        disabled={isSubmitting}
                         value={formData.serviceNeeded}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-705 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] cursor-pointer"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-705 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="Custom Software Development">Software Engineering</option>
                         <option value="Artificial Intelligence">Artificial Intelligence Systems</option>
@@ -237,9 +277,10 @@ export function ContactUs() {
                       <select
                         name="budgetRange"
                         id="budgetRange"
+                        disabled={isSubmitting}
                         value={formData.budgetRange}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-705 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] cursor-pointer"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-705 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <option value="£10,000 - £30,000">£10,000 - £30,000</option>
                         <option value="£30,000 - £50,000">£30,000 - £50,000</option>
@@ -256,20 +297,31 @@ export function ContactUs() {
                     <textarea
                       name="projectDetails"
                       id="projectDetails"
+                      disabled={isSubmitting}
                       value={formData.projectDetails}
                       onChange={handleInputChange}
                       placeholder="Detail specific platform parameters, anticipated user metrics, or legacy systems requirements..."
                       rows={4}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] resize-none"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-205 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-450 focus:outline-none focus:border-[#326E45] focus:ring-1 focus:ring-[#326E45] resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-4 rounded-xl text-xs font-mono font-black uppercase tracking-wider text-white bg-slate-900 hover:bg-[#326E45] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 shadow-sm"
+                    disabled={isSubmitting}
+                    className="w-full py-4 rounded-xl text-xs font-mono font-black uppercase tracking-wider text-white bg-slate-900 hover:bg-[#326E45] flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 shadow-sm disabled:opacity-75 disabled:cursor-not-allowed"
                   >
-                    <span>Transmit Ingress payload</span>
-                    <Send size={12} />
+                    {isSubmitting ? (
+                      <>
+                        <span>Transmitting Ingress payload...</span>
+                        <Loader2 size={12} className="animate-spin" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Transmit Ingress payload</span>
+                        <Send size={12} />
+                      </>
+                    )}
                   </button>
 
                 </motion.form>
