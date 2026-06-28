@@ -121,8 +121,19 @@ export function ContactUs() {
       playSound('success');
     } catch (err: any) {
       console.error('Supabase contact submission failed:', err);
+      let errMsg = err?.message || '';
+      if (err?.details) {
+        errMsg += ` Details: ${err.details}`;
+      }
+      if (err?.hint) {
+        errMsg += ` Hint: ${err.hint}`;
+      }
+      if (!errMsg) {
+        errMsg = typeof err === 'string' ? err : JSON.stringify(err);
+      }
+      
       setValidationError(
-        err.message || 
+        errMsg || 
         'Unable to connect to the database or save inquiry. Please check your Supabase connection.'
       );
     } finally {
@@ -173,9 +184,63 @@ export function ContactUs() {
                 >
                   
                   {validationError && (
-                    <div className="flex items-center gap-2 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-700 font-bold">
-                      <AlertTriangle size={14} className="shrink-0" />
-                      <span>{validationError}</span>
+                    <div className="space-y-3 p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                      <div className="flex items-start gap-2.5 font-bold text-rose-900">
+                        <AlertTriangle size={16} className="shrink-0 text-rose-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p>{validationError}</p>
+                          {(validationError.toLowerCase().includes('relation') || validationError.toLowerCase().includes('connection') || validationError.toLowerCase().includes('failed') || validationError.toLowerCase().includes('database') || validationError.toLowerCase().includes('api')) && (
+                            <p className="text-[11px] font-normal text-rose-700 mt-1">
+                              This usually happens if the <code className="bg-rose-100 px-1 py-0.5 rounded text-rose-900 font-mono">contact_submissions</code> table or its anonymous Row-Level Security (RLS) policies are not yet set up in your Supabase project.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {(validationError.toLowerCase().includes('relation') || validationError.toLowerCase().includes('connection') || validationError.toLowerCase().includes('failed') || validationError.toLowerCase().includes('database') || validationError.toLowerCase().includes('api')) && (
+                        <div className="border-t border-rose-150 pt-2.5 mt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playSound('click');
+                              const el = document.getElementById('supabase-setup-guide');
+                              if (el) el.classList.toggle('hidden');
+                            }}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold text-rose-700 hover:text-rose-900 transition-colors cursor-pointer"
+                          >
+                            <ChevronDown size={12} />
+                            <span>Toggle Supabase Setup SQL Guide</span>
+                          </button>
+                          
+                          <div id="supabase-setup-guide" className="hidden mt-2 space-y-2 bg-slate-950 text-slate-100 p-3 rounded-lg font-mono text-[10px] leading-relaxed overflow-x-auto border border-slate-800">
+                            <p className="text-emerald-400 font-bold mb-1 border-b border-slate-800 pb-1">-- Copy and run this in your Supabase SQL Editor:</p>
+                            <pre className="text-slate-300">
+{`-- 1. Create the target table
+create table contact_submissions (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  name text not null,
+  email text not null,
+  company text,
+  phone text,
+  service_needed text,
+  budget_range text,
+  project_details text
+);
+
+-- 2. Enable Row Level Security (RLS)
+alter table contact_submissions enable row level security;
+
+-- 3. Create public anonymous insert policy
+create policy "Allow public inserts" 
+on contact_submissions 
+for insert 
+to anon 
+with check (true);`}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
